@@ -54,17 +54,20 @@ function ArtifactDetail() {
         <div className="mt-8 aspect-[16/7] overflow-hidden rounded-2xl"><ArtifactThumb artifact={a} /></div>
       </div>
       <div className="mt-10 grid gap-6">
-        <Block title="Overview"><p>{a.overview}</p></Block>
+        <Block title="Introduction"><p>{a.introduction}</p></Block>
+        <Block title="Description"><p>{a.description}</p></Block>
         <Block title="Objective"><p>{a.objective}</p></Block>
-        <Block title="Tools Used">
+        <Block title="Process">
+          <ol className="list-decimal space-y-1 pl-5">{a.process.map((p) => <li key={p}>{p}</li>)}</ol>
+        </Block>
+        <Block title="Tools and Technologies Used">
           <ul className="flex flex-wrap gap-2">
             {a.tools.map((t) => <li key={t} className="rounded-full bg-muted px-3 py-1 text-sm font-medium text-primary">{t}</li>)}
           </ul>
         </Block>
-        <Block title="What I Did">
-          <ul className="list-disc space-y-1 pl-5">{a.whatIDid.map((w) => <li key={w}>{w}</li>)}</ul>
-        </Block>
-        <Block title="Key Learnings / Reflection"><p>{a.reflection}</p></Block>
+        <Block title="Value Proposition"><p>{a.valueProposition}</p></Block>
+        <Block title="Unique Value"><p>{a.uniqueValue}</p></Block>
+        <Block title="Relevance"><p>{a.relevance}</p></Block>
         {a.link && (
           <Block title="View the Work">
             {a.link.embed ? (
