@@ -1,4 +1,6 @@
 // Add new artifacts to this array — cards and detail pages are generated automatically.
+import logoAsset from "@/assets/gymfuel-planner-logo.png.asset.json";
+
 export type Artifact = {
   slug: string;
   title: string;
