@@ -10,33 +10,79 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as ResumeRouteImport } from './routes/resume'
+import { Route as ArtifactsIndexRouteImport } from './routes/artifacts.index'
+import { Route as ArtifactsSlugRouteImport } from './routes/artifacts.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResumeRoute = ResumeRouteImport.update({
+  id: '/resume',
+  path: '/resume',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtifactsIndexRoute = ArtifactsIndexRouteImport.update({
+  id: '/artifacts/',
+  path: '/artifacts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtifactsSlugRoute = ArtifactsSlugRouteImport.update({
+  id: '/artifacts/$slug',
+  path: '/artifacts/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/contact': typeof ContactRoute
+  '/resume': typeof ResumeRoute
+  '/artifacts/$slug': typeof ArtifactsSlugRoute
+  '/artifacts/': typeof ArtifactsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/contact': typeof ContactRoute
+  '/resume': typeof ResumeRoute
+  '/artifacts/$slug': typeof ArtifactsSlugRoute
+  '/artifacts': typeof ArtifactsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/contact': typeof ContactRoute
+  '/resume': typeof ResumeRoute
+  '/artifacts/$slug': typeof ArtifactsSlugRoute
+  '/artifacts/': typeof ArtifactsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/contact' | '/resume' | '/artifacts/$slug' | '/artifacts/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/contact' | '/resume' | '/artifacts/$slug' | '/artifacts'
+  id:
+    | '__root__'
+    | '/'
+    | '/contact'
+    | '/resume'
+    | '/artifacts/$slug'
+    | '/artifacts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ContactRoute: typeof ContactRoute
+  ResumeRoute: typeof ResumeRoute
+  ArtifactsSlugRoute: typeof ArtifactsSlugRoute
+  ArtifactsIndexRoute: typeof ArtifactsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +94,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resume': {
+      id: '/resume'
+      path: '/resume'
+      fullPath: '/resume'
+      preLoaderRoute: typeof ResumeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artifacts/': {
+      id: '/artifacts/'
+      path: '/artifacts'
+      fullPath: '/artifacts/'
+      preLoaderRoute: typeof ArtifactsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artifacts/$slug': {
+      id: '/artifacts/$slug'
+      path: '/artifacts/$slug'
+      fullPath: '/artifacts/$slug'
+      preLoaderRoute: typeof ArtifactsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ContactRoute: ContactRoute,
+  ResumeRoute: ResumeRoute,
+  ArtifactsSlugRoute: ArtifactsSlugRoute,
+  ArtifactsIndexRoute: ArtifactsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
