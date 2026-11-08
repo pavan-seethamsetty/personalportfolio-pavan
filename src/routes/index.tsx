@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Download, Server, BrainCircuit, Handshake } from "lucide-react";
+import { ArrowRight, Server, BrainCircuit, Handshake } from "lucide-react";
 import { site } from "@/data/site";
 import { artifacts } from "@/data/artifacts";
 import { ArtifactCard } from "@/components/ArtifactCard";
@@ -41,9 +41,9 @@ function Hero() {
             <Link to="/artifacts" className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground transition-transform hover:-translate-y-0.5">
               View My Artifacts <ArrowRight className="h-4 w-4" />
             </Link>
-            <a href={site.resumeUrl} download className="inline-flex items-center gap-2 rounded-lg border border-primary-foreground/30 px-6 py-3 font-semibold transition-colors hover:bg-primary-foreground/10">
-              <Download className="h-4 w-4" /> Download Resume
-            </a>
+            <Link to="/contact" className="inline-flex items-center gap-2 rounded-lg border border-primary-foreground/30 px-6 py-3 font-semibold transition-colors hover:bg-primary-foreground/10">
+              Get in Touch <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
         <div className="animate-fade-up mx-auto">
