@@ -34,7 +34,6 @@ function Hero() {
       <div className="hero-grid absolute inset-0" aria-hidden />
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 py-20 md:grid-cols-[1fr_auto] md:py-28">
         <div className="animate-fade-up">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-accent">Graduate Portfolio · Indiana Wesleyan University</p>
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">{site.name}</h1>
           <p className="mt-5 max-w-xl text-lg opacity-85 sm:text-xl">{site.tagline}</p>
           <div className="mt-8 flex flex-wrap gap-3">
