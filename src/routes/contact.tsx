@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Linkedin, Mail, Send } from "lucide-react";
+import { Phone, Mail, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { site } from "@/data/site";
 import { SectionHeading } from "@/components/Reveal";
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/contact")({
       { title: "Contact – Pavan Kumar Seethamsetty" },
       { name: "description", content: "Get in touch with Pavan Kumar Seethamsetty about Data, AI and enterprise HR systems." },
       { property: "og:title", content: "Contact – Pavan Kumar Seethamsetty" },
-      { property: "og:description", content: "Reach out via the contact form, LinkedIn or email." },
+      { property: "og:description", content: "Reach out via the contact form, phone or email." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -33,8 +33,8 @@ function ContactPage() {
       <div className="animate-fade-up">
         <SectionHeading eyebrow="Say hello" title="Contact" intro="I'd love to hear from recruiters, faculty and fellow data enthusiasts." />
         <div className="space-y-3">
-          <a href={site.linkedin} target="_blank" rel="noreferrer" className="card-lift flex items-center gap-3 rounded-xl border border-border bg-card p-4 font-medium text-primary">
-            <Linkedin className="h-5 w-5 text-accent-strong" /> LinkedIn
+          <a href="tel:+13462191083" className="card-lift flex items-center gap-3 rounded-xl border border-border bg-card p-4 font-medium text-primary">
+            <Phone className="h-5 w-5 text-accent-strong" /> +1 (346) 219-1083
           </a>
           <a href={`mailto:${site.email}`} className="card-lift flex items-center gap-3 rounded-xl border border-border bg-card p-4 font-medium text-primary break-all">
             <Mail className="h-5 w-5 shrink-0 text-accent-strong" /> {site.email}
