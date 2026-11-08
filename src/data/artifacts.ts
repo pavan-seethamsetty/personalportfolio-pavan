@@ -25,6 +25,7 @@ export const artifacts: Artifact[] = [
     tag: "AIML-500 AI Lab",
     summary:
       "A nutrition-based meal and grocery planning assistant built with generative AI using a design-thinking approach.",
+    image: logoAsset.url,
     overview:
       "GymFuel Planner is a conversational assistant that helps fitness-focused users plan meals that match their goals and turns those plans into a ready-to-use grocery list.",
     objective:
