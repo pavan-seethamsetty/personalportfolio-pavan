@@ -26,13 +26,14 @@ function lovableAssetsToPublicImages(): Plugin {
     async resolveId(source, importer) {
       if (!source.endsWith(".asset.json") || source.includes(MARKER)) return null;
       const resolved = await this.resolve(source, importer, { skipSelf: true });
-      return resolved ? PREFIX + resolved.id : null;
+      // ".mjs" suffix stops Vite's JSON plugin from trying to parse the generated module
+      return resolved ? PREFIX + resolved.id + ".mjs" : null;
     },
     load(id) {
       // lastIndexOf: the bundler may run resolveId twice and stack the prefix
       const at = id.lastIndexOf(MARKER);
       if (at === -1) return null;
-      const file = id.slice(at + MARKER.length).split("?")[0];
+      const file = id.slice(at + MARKER.length).split("?")[0].replace(/\.mjs$/, "");
       const meta = JSON.parse(readFileSync(file, "utf8"));
       // Use a copy in public/images/ if one was added; otherwise load it from the Lovable site.
       const url = existsSync(`public/images/${meta.original_filename}`)
