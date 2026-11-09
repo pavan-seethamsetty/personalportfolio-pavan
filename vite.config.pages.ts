@@ -37,9 +37,12 @@ function lovableAssetsToPublicImages(): Plugin {
       const file = rest.slice(0, rest.indexOf(".asset.json") + ".asset.json".length);
       const meta = JSON.parse(readFileSync(file, "utf8"));
       // Use a copy in public/images/ if one was added; otherwise load it from the Lovable site.
-      const url = existsSync(`public/images/${meta.original_filename}`)
-        ? `${BASE}images/${meta.original_filename}`
-        : `${LOVABLE_SITE}${meta.url}`;
+      // (any image extension is accepted, e.g. profile-photo.jpg for profile-photo.png)
+      const stem = meta.original_filename.replace(/\.[^.]+$/, "");
+      const local = ["png", "jpg", "jpeg", "webp", "svg"]
+        .map((ext) => `${stem}.${ext}`)
+        .find((name) => existsSync(`public/images/${name}`));
+      const url = local ? `${BASE}images/${local}` : `${LOVABLE_SITE}${meta.url}`;
       return `export default ${JSON.stringify({ ...meta, url })};`;
     },
   };
