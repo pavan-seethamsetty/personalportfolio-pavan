@@ -33,7 +33,8 @@ function lovableAssetsToPublicImages(): Plugin {
       // lastIndexOf: the bundler may run resolveId twice and stack the prefix
       const at = id.lastIndexOf(MARKER);
       if (at === -1) return null;
-      const file = id.slice(at + MARKER.length).split("?")[0].replace(/\.mjs$/, "");
+      const rest = id.slice(at + MARKER.length);
+      const file = rest.slice(0, rest.indexOf(".asset.json") + ".asset.json".length);
       const meta = JSON.parse(readFileSync(file, "utf8"));
       // Use a copy in public/images/ if one was added; otherwise load it from the Lovable site.
       const url = existsSync(`public/images/${meta.original_filename}`)
