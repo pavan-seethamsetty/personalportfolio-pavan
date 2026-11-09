@@ -18,18 +18,22 @@ const LOVABLE_SITE = "https://personalportfolio-pavan.lovable.app";
 // Images uploaded in Lovable live on Lovable's servers (/__l5e/...), not in the repo.
 // For GitHub Pages, each `*.asset.json` import is pointed at public/images/<original file name>.
 function lovableAssetsToPublicImages(): Plugin {
-  const PREFIX = "\0pages-asset:";
+  const MARKER = "pages-asset:";
+  const PREFIX = "\0" + MARKER;
   return {
     name: "pages:lovable-assets",
     enforce: "pre",
     async resolveId(source, importer) {
-      if (!source.endsWith(".asset.json")) return null;
+      if (!source.endsWith(".asset.json") || source.includes(MARKER)) return null;
       const resolved = await this.resolve(source, importer, { skipSelf: true });
       return resolved ? PREFIX + resolved.id : null;
     },
     load(id) {
-      if (!id.startsWith(PREFIX)) return null;
-      const meta = JSON.parse(readFileSync(id.slice(PREFIX.length), "utf8"));
+      // lastIndexOf: the bundler may run resolveId twice and stack the prefix
+      const at = id.lastIndexOf(MARKER);
+      if (at === -1) return null;
+      const file = id.slice(at + MARKER.length).split("?")[0];
+      const meta = JSON.parse(readFileSync(file, "utf8"));
       // Use a copy in public/images/ if one was added; otherwise load it from the Lovable site.
       const url = existsSync(`public/images/${meta.original_filename}`)
         ? `${BASE}images/${meta.original_filename}`
