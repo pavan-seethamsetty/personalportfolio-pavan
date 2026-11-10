@@ -25,7 +25,7 @@ export const artifacts: Artifact[] = [
   {
     slug: "gymfuel-planner",
     title: "GymFuel Planner – AI Meal & Grocery Chatbot",
-    tag: "AIML-500 AI Lab",
+    tag: "AIML-500-01N1Z-AI Lab",
     summary:
       "A nutrition-based meal and grocery planning assistant built with generative AI using a design-thinking approach.",
     image: logoAsset.url,
