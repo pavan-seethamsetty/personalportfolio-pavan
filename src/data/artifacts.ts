@@ -60,7 +60,7 @@ export const artifacts: Artifact[] = [
   {
     slug: "ai-ml-timeline",
     title: "A Timeline of AI and Machine Learning (1939 to 2024)",
-    tag: "DTAN-500 Foundations of Data Analytics",
+    tag: "AIML-500-01N1Z Machine Learning Fundamentals",
     summary:
       "A visual timeline of AI history, from Turing's codebreaking to ChatGPT, covering the key milestones, the two AI winters and the rise of deep learning, cloud and generative AI.",
     image: `${import.meta.env.BASE_URL}images/ai-ml-timeline-cover.webp`,
