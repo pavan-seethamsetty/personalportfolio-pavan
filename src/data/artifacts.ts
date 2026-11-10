@@ -57,6 +57,44 @@ export const artifacts: Artifact[] = [
     link: { label: "Try the GymFuel chatbot", url: "https://mizou.com/preview-bot?ID=167371" },
     featured: true,
   },
+  {
+    slug: "ai-ml-timeline",
+    title: "A Timeline of AI and Machine Learning (1939 to 2024)",
+    tag: "DTAN-500 Foundations of Data Analytics",
+    summary:
+      "A visual timeline of AI history, from Turing's codebreaking to ChatGPT, covering the key milestones, the two AI winters and the rise of deep learning, cloud and generative AI.",
+    image: `${import.meta.env.BASE_URL}images/ai-ml-timeline-cover.webp`,
+    introduction:
+      "This artifact is a visual timeline I made to understand how artificial intelligence got to where it is today. It starts with Alan Turing's codebreaking work in 1939 and ends with ChatGPT and the current AI race in 2024.",
+    description:
+      "The timeline is split into clear eras: the foundations (1939 to 1971), the two AI winters, the return of neural networks once data and hardware caught up (1980 to 2012), and the cloud and generative AI era (2014 to 2024). Each stop names the people and companies behind it, like Turing, Hinton, Fei-Fei Li, IBM, Google, DeepMind, OpenAI, Microsoft and NVIDIA. It ends with three things I learned while building it.",
+    objective:
+      "See the history of AI as one connected story, understand why progress stalled during the AI winters and what brought it back, and present all of it in a format anyone can follow in a few minutes.",
+    process: [
+      "Went through the course sources: the IEEE Computer Society article, Our World in Data, a DataCamp piece on AI winters and a YouTube history of AI.",
+      "Picked the milestones that mattered most and noted the people and companies behind each one.",
+      "Looked into the causes and impact of the two AI winters, such as the 1973 Lighthill Report and the collapse of the Lisp machine market.",
+      "Grouped the events into eras and built simple, readable slides in PowerPoint.",
+      "Added my own takeaways and APA references, then shared it in the class discussion.",
+    ],
+    tools: [
+      "Microsoft PowerPoint",
+      "Research & Source Analysis",
+      "Data Storytelling",
+      "APA Citation",
+    ],
+    valueProposition:
+      "It turns about 85 years of AI history into a short, visual story, so someone new to AI can quickly see how we got from rule-based systems to tools like ChatGPT.",
+    uniqueValue:
+      "It goes beyond listing dates. It explains why things happened: why the AI winters hit, why backpropagation from 1986 only took off after big data and GPUs arrived, and how AI shifted from predicting things to generating new content.",
+    relevance:
+      "Knowing this history helps me look at new AI trends with context instead of hype, including the difference between today's narrow AI and AGI. It also shows I can research a complex topic, organize it and explain it visually, which is a core skill in data and AI work.",
+    link: {
+      label: "View the AI timeline",
+      url: `${import.meta.env.BASE_URL}files/ai-ml-timeline.pdf`,
+      embed: true,
+    },
+  },
 ];
 
 export const getArtifact = (slug: string) => artifacts.find((a) => a.slug === slug);
