@@ -95,6 +95,45 @@ export const artifacts: Artifact[] = [
       embed: true,
     },
   },
+  {
+    slug: "ml-vs-dl-healthcare",
+    title: "Machine Learning vs Deep Learning in Healthcare",
+    tag: "AIML-500-01N1Z - ML vs DL",
+    summary:
+      "A short animated video that explains the difference between machine learning and deep learning through real healthcare examples, including the MASAI breast cancer screening trial.",
+    image: `${import.meta.env.BASE_URL}images/ml-vs-dl-cover.webp`,
+    introduction:
+      "This artifact is a short animated video on one question: what is the difference between machine learning and deep learning, and why does it matter in healthcare? It started as a residency presentation in my Machine Learning Fundamentals course. For my portfolio I turned it into a video that anyone can follow in under three minutes.",
+    description:
+      "The video starts with something most of us have done, Googling our symptoms, and follows a patient named Maya and her questions about AI. It shows where machine learning and deep learning sit inside AI, then compares them on the same problem: finding diabetic retinopathy in eye photos, once with hand-picked features (traditional ML) and once with a neural network that learns the features itself (deep learning). A side-by-side scene compares the two on features, data, strengths and explainability. The main example is the MASAI trial in Sweden, where a deep learning model called Transpara helped radiologists read mammograms for 105,934 women. The results were 29% more cancers found and 44% less reading work, with no extra false alarms. It ends with ethics, real clinical challenges and one message: ML finds patterns, DL recognizes complex signals, and doctors make the decisions.",
+    objective:
+      "Explain the difference between machine learning and deep learning in a way a non-technical audience can understand, and show with real evidence how both are already being used in healthcare.",
+    process: [
+      "Researched the MASAI trial using The Lancet, The Lancet Digital Health and Lund University.",
+      "Studied how ML and DL each approach the same medical problem, using diabetic retinopathy as the example.",
+      "Made the ML vs DL comparison the main thread and planned the video scene by scene.",
+      "Built the animated video with Claude (AI): animated statistics, a sensitivity chart and a side-by-side ML vs DL comparison.",
+      "Checked every number against the published studies and added the sources at the end of the video.",
+    ],
+    tools: [
+      "Microsoft PowerPoint",
+      "Claude (AI) for animation",
+      "Data Storytelling",
+      "Research & Source Analysis",
+      "APA Citation",
+    ],
+    valueProposition:
+      "In under three minutes it explains a concept that confuses a lot of people, the difference between ML and DL, and backs it up with real clinical results instead of hype.",
+    uniqueValue:
+      "It does not just define the terms. It puts ML and DL side by side on the same medical problem and then shows a deep learning model working in a real randomized trial, so the viewer sees why the difference matters.",
+    relevance:
+      "Healthcare is one of the areas where AI has the most at stake, so being able to explain what a model does, what evidence supports it and where a human still has to decide is an important skill for any AI or data role. This artifact also shows I can take technical content and adapt it for a different audience and format.",
+    link: {
+      label: "Watch the video",
+      url: `${import.meta.env.BASE_URL}videos/ml-vs-dl-healthcare.mp4`,
+      embed: true,
+    },
+  },
 ];
 
 export const getArtifact = (slug: string) => artifacts.find((a) => a.slug === slug);
