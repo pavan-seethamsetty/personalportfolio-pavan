@@ -17,7 +17,7 @@ export type Artifact = {
   uniqueValue: string;
   relevance: string;
   /** Link to PDF, slides or live site. Use embed: true to show it inline. */
-  link?: { label: string; url: string; embed?: boolean };
+  link?: { label: string; url: string; embed?: boolean; height?: number };
   featured?: boolean;
 };
 
@@ -132,6 +132,46 @@ export const artifacts: Artifact[] = [
       label: "Watch the video",
       url: `${import.meta.env.BASE_URL}videos/ml-vs-dl-healthcare.mp4`,
       embed: true,
+    },
+  },
+  {
+    slug: "restaurant-camera-neural-network",
+    title: "How a Restaurant Camera Learns: Neural Networks in the Dining Room",
+    tag: "AIML-500-01N1Z - Neural Networks",
+    summary:
+      "An animated, interactive explainer that shows how a neural network turns a ceiling camera feed into \"Table 6 needs clearing,\" based on Outback Steakhouse's pilot of Presto Vision.",
+    image: `${import.meta.env.BASE_URL}images/restaurant-camera-cover.webp`,
+    introduction:
+      "In Module 3 I explained neural networks with an analogy. For this artifact I wanted a real business example instead. Outback Steakhouse piloted a camera system called Presto Vision that watches the lobby and dining room and alerts staff, and I built an animated explainer around that idea so anyone can see what a neural network is doing step by step.",
+    description:
+      "The artifact plays like a short video with eight chapters and captions. It starts with the problem: a busy night where the steward only notices dirty tables on their rounds while guests wait in the lobby. It then walks through the layers of the network: raw pixels as the input, hidden layers that detect people, plates, crumbs and bags, a layer that combines those into a table state, and an output that alerts the steward. The learning chapter shows the model getting a table wrong (guests stepped out but left a bag), a manager correcting it, and the error flowing backward so the weights change. A live panel shows all four layers for whichever table you click, and a side-by-side comparison shows the same night with and without AI alerts. It ends with the ethics of putting cameras on restaurant staff.",
+    objective:
+      "Explain how a neural network works, including layers, weights and backpropagation, through a real commercial use of computer vision, in a format people can watch and play with instead of read.",
+    process: [
+      "Researched real restaurant computer vision systems, including Presto Vision at Outback Steakhouse, table-monitoring tools and the criticism of kitchen cameras watching workers.",
+      "Mapped each part of the restaurant system to a layer of a neural network, from camera pixels to the steward alert.",
+      "Planned eight short chapters, each teaching one idea, with captions written for a non-technical viewer.",
+      "Built the animated simulation and a small table-state model whose weights really update when a prediction is marked wrong.",
+      "Tested the learning step and compared the simulated night with and without AI alerts, then added the ethics discussion and sources.",
+    ],
+    tools: [
+      "Claude (AI) for coding the simulation",
+      "HTML, CSS and JavaScript (Canvas)",
+      "Computer Vision Concepts",
+      "Data Storytelling",
+      "APA Citation",
+    ],
+    valueProposition:
+      "In about a minute and a half it shows what happens inside a neural network, using a situation everyone has seen: waiting for a table while one sits uncleared.",
+    uniqueValue:
+      "Viewers do not just read about backpropagation. They watch the model make a mistake, correct it themselves, and see the weights and the prediction change. It also stays honest about the downside of the same cameras watching employees.",
+    relevance:
+      "Computer vision is moving into everyday businesses like restaurants and retail. Being able to explain how these models work, where they go wrong and how they should be used responsibly with staff is the kind of judgment AI and data roles need.",
+    link: {
+      label: "Open the interactive explainer",
+      url: `${import.meta.env.BASE_URL}files/restaurant-camera-explainer.html`,
+      embed: true,
+      height: 760,
     },
   },
 ];

@@ -73,7 +73,12 @@ function ArtifactDetail() {
             {a.link.embed && a.link.url.endsWith(".mp4") ? (
               <video src={a.link.url} controls playsInline preload="metadata" poster={a.image} className="w-full rounded-lg border border-border bg-black" />
             ) : a.link.embed ? (
-              <iframe src={a.link.url} title={a.title} className="h-[600px] w-full rounded-lg border border-border" />
+              <div className="space-y-3">
+                <iframe src={a.link.url} title={a.title} style={{ height: a.link.height ?? 600 }} className="w-full rounded-lg border border-border" />
+                <a href={a.link.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-medium text-accent-strong underline">
+                  {a.link.label} in a new tab <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
             ) : (
               <a href={a.link.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-semibold text-accent-foreground hover:bg-accent-strong">
                 {a.link.label} <ExternalLink className="h-4 w-4" />

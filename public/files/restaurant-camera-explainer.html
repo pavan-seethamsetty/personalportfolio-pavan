@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a Restaurant Camera Learns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Mono:wght@500&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a CCTV "player" at the top (the video), the network's four layers live underneath it, then results, ethics and sources. */
+:root {
+  --page: #f3f5f7;
+  --card: #ffffff;
+  --ink: #18202a;
+  --muted: #5a6573;
+  --line: #d7dde4;
+  --accent: #c46a00;
+  --accent-soft: #fdf0e1;
+  --good: #1f8a55;
+  --bad: #c73a3a;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  /* the camera feed always stays dark, like a real CCTV monitor */
+  --feed: #0f1418;
+  --feed-ink: #dfe7ee;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0e1216; --card: #161c22; --ink: #e5eaf0; --muted: #9aa6b3; --line: #29323c;
+    --accent: #f2a93b; --accent-soft: #33281a; --good: #4cc98a; --bad: #ff7a7a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0e1216; --card: #161c22; --ink: #e5eaf0; --muted: #9aa6b3; --line: #29323c;
+  --accent: #f2a93b; --accent-soft: #33281a; --good: #4cc98a; --bad: #ff7a7a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 17px/1.55 var(--body); }
+main { max-width: 1080px; margin: 0 auto; padding: 32px 18px 64px; display: grid; gap: 36px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(28px, 4.6vw, 42px); font-weight: 800; }
+h2 { font-size: 23px; font-weight: 800; }
+h3 { font-size: 15px; font-weight: 600; }
+p { margin: 0; max-width: 70ch; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.stack { display: grid; gap: 12px; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { font: 600 12px/1 var(--body); text-transform: uppercase; letter-spacing: .05em; padding: 6px 9px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+
+/* Player */
+.player { background: var(--feed); border-radius: 12px; overflow: hidden; border: 1px solid #222b33; }
+.stage { position: relative; }
+canvas#floor { display: block; width: 100%; height: auto; cursor: pointer; }
+.caption { background: #0a0e11; color: #f3f6f9; padding: 12px 18px; min-height: 76px; display: block; font-size: clamp(14px, 1.9vw, 18px); line-height: 1.45; text-align: center; border-top: 1px solid #222b33; }
+.caption b { color: #ffc46b; }
+.bar { display: grid; gap: 10px; padding: 12px 14px 14px; color: var(--feed-ink); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pbtn { background: #ffb547; color: #1a1206; border: 0; border-radius: 6px; font: 600 15px var(--body); padding: 8px 14px; cursor: pointer; min-width: 92px; }
+.chapters { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; flex: 1; min-width: 260px; }
+.chap { position: relative; background: #222c35; border: 0; color: #b9c6d2; font: 600 12px/1.2 var(--body); padding: 8px 4px 10px; border-radius: 4px; cursor: pointer; overflow: hidden; text-align: center; }
+.chap .fill { position: absolute; left: 0; bottom: 0; height: 3px; background: #ffb547; width: 0; }
+.chap[aria-current="true"] { background: #34414d; color: #fff; }
+.chap.done .fill { width: 100%; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 14px; color: #b9c6d2; }
+.tools label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.sbtn { background: transparent; color: #e6edf3; border: 1px solid #3c4955; border-radius: 6px; font: 600 14px var(--body); padding: 6px 11px; cursor: pointer; }
+.sbtn:disabled { opacity: .4; cursor: not-allowed; }
+.sbtn.warn { border-color: #ff7a7a; color: #ffb3b3; }
+button:focus-visible, input:focus-visible { outline: 3px solid #ffb547; outline-offset: 2px; }
+
+/* Network panel */
+.net { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.col { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; position: relative; transition: border-color .25s, box-shadow .25s; }
+.col .k { font: 500 11px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.col:not(:last-child)::after { content: "→"; position: absolute; right: -11px; top: 16px; color: var(--muted); font-weight: 700; }
+.col.fwd { border-color: var(--good); box-shadow: 0 0 0 2px color-mix(in srgb, var(--good) 30%, transparent); }
+.col.back { border-color: var(--bad); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 30%, transparent); }
+.col.back::after { content: "←"; color: var(--bad); }
+#thumb { width: 100%; aspect-ratio: 4 / 3; image-rendering: pixelated; border-radius: 6px; background: #0f1418; }
+.objs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 15px; }
+.objs li { display: flex; justify-content: space-between; gap: 6px; }
+.objs li span:last-child { font: 500 13px var(--mono); color: var(--muted); }
+.objs li.on span:first-child { font-weight: 600; }
+.probs { display: grid; gap: 6px; font-size: 14px; }
+.prob { display: grid; gap: 2px; }
+.prob .lbl { display: flex; justify-content: space-between; }
+.prob .lbl span:last-child { font: 500 13px var(--mono); }
+.prob .track { height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.prob .track i { display: block; height: 100%; background: var(--muted); transition: width .35s; }
+.prob.top .track i { background: var(--accent); }
+.prob.top .lbl span:first-child { font-weight: 600; }
+.action { font-size: 16px; font-weight: 600; }
+.action.alert { color: var(--accent); }
+.weights { font: 500 13px var(--mono); color: var(--muted); display: grid; gap: 2px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.weights.hot { color: var(--bad); }
+
+/* Results */
+.results { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.metric { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 6px; }
+.metric .vals { display: flex; gap: 16px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.metric .on { font: 800 26px var(--display); color: var(--good); }
+.metric .off { font: 600 18px var(--display); color: var(--muted); }
+.metric small { color: var(--muted); font-size: 13px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+.sources { font-size: 15px; display: grid; gap: 6px; margin: 0; padding-left: 18px; }
+footer { border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 8px; font-size: 15px; }
+
+@media (max-width: 820px) {
+  .net { grid-template-columns: 1fr 1fr; }
+  .col:nth-child(2)::after { display: none; }
+  .two { grid-template-columns: 1fr; }
+  .chapters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 440px) {
+  .net { grid-template-columns: 1fr; }
+  .col::after { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="stack">
+    <div class="tags"><span class="tag">AIML-500 · Artifact 4</span><span class="tag">Neural networks</span><span class="tag">Real case: Outback Steakhouse × Presto Vision</span></div>
+    <h1>How a restaurant camera learns to read the dining room</h1>
+    <p class="muted">Press play to watch how a neural network turns a ceiling camera feed into "Table 6 needs clearing," and how it learns when it gets that wrong. After the last chapter the controls are yours.</p>
+  </header>
+
+  <section class="player" aria-label="Animated explainer">
+    <div class="stage">
+      <canvas id="floor" width="960" height="540" aria-label="Top-down camera view of a restaurant floor with a lobby, eight tables and a steward"></canvas>
+      <div class="caption" id="caption" aria-live="polite"></div>
+    </div>
+    <div class="bar">
+      <div class="row">
+        <button class="pbtn" id="playBtn">▶ Play</button>
+        <div class="chapters" id="chapters"></div>
+      </div>
+      <div class="tools" id="tools">
+        <label><input type="checkbox" id="aiToggle" checked> AI alerts on</label>
+        <label><input type="checkbox" id="busyToggle" checked> Busy night</label>
+        <span>Show layers:</span>
+        <label><input type="checkbox" id="ovPixels"> Pixels</label>
+        <label><input type="checkbox" id="ovObjects"> Objects</label>
+        <label><input type="checkbox" id="ovStates"> Table states</label>
+        <label><input type="checkbox" id="ovAlerts"> Alerts</label>
+        <button class="sbtn" id="stageBtn">Stage a tricky table (resets learning)</button>
+        <button class="sbtn warn" id="wrongBtn" disabled>Mark prediction wrong</button>
+        <button class="sbtn" id="resetW">Reset learning</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" aria-labelledby="inside">
+    <h2 id="inside">Inside the network: <span id="focusName">Table 1</span></h2>
+    <p class="muted">Click any table in the video to follow it. Green outlines show the forward pass. Red shows the error flowing backward during learning.</p>
+    <div class="net">
+      <div class="col" id="c0"><span class="k">Input layer</span><h3>Raw pixels</h3><canvas id="thumb" width="160" height="120"></canvas><span class="muted" style="font-size:13px">To the network this is only numbers: a brightness value for every pixel.</span></div>
+      <div class="col" id="c1"><span class="k">Hidden layers 1–2</span><h3>Objects it detects</h3><ul class="objs" id="objs"></ul><span class="muted" style="font-size:13px">Early layers find edges and shapes. Later ones combine them into objects.</span></div>
+      <div class="col" id="c2"><span class="k">Hidden layer 3</span><h3>Table state</h3><div class="probs" id="probs"></div><div class="weights" id="weights"></div></div>
+      <div class="col" id="c3"><span class="k">Output</span><h3>Action</h3><div class="action" id="action"></div><span class="muted" style="font-size:13px" id="actionNote"></span></div>
+    </div>
+  </section>
+
+  <section class="stack" aria-labelledby="res">
+    <h2 id="res">Same night, with and without the AI</h2>
+    <p class="muted">Two copies of this simulated restaurant get the same guests at the same times. One steward gets camera alerts and the other spots messy tables on their rounds. <b style="color:var(--good)">Green</b> is alerts on, grey is alerts off.</p>
+    <div class="results" id="results"></div>
+  </section>
+
+  <section class="two">
+    <div class="card">
+      <h2>The real case</h2>
+      <p>Presto launched Presto Vision, a camera system for restaurant lobbies and dining rooms that analyzes how staff and guests move in real time and alerts managers. Outback Steakhouse piloted it at restaurants run by its franchisee Evergreen Restaurant Group, with cameras in the lobby watching how hosts, servers and guests interact. Other vendors now sell similar tools that flag a table guests have left but nobody has cleared.</p>
+      <p class="muted">The simulation on this page is my own illustration of how such a system works. It is not Presto's actual model, and all the numbers come from the simulation, not from Outback.</p>
+    </div>
+    <div class="card">
+      <h2>The part I'd watch as a leader</h2>
+      <p>The same camera that sees a dirty table also sees the person who should have cleared it. Food writers criticized a similar kitchen-camera startup for "spying" on workers. If I were rolling this out, I would tell staff exactly what is recorded, measure tables and wait times instead of ranking individual employees, keep footage only as long as needed, and let a manager, not the model, make any judgment about a person. A model that gets a table wrong costs a wasted trip. A model that gets a person wrong can cost someone their job.</p>
+    </div>
+  </section>
+
+  <section class="stack" aria-labelledby="src">
+    <h2 id="src">Sources</h2>
+    <ul class="sources">
+      <li>Presto. (n.d.). <i>Presto launches Presto Vision, the first comprehensive computer vision product for restaurants</i> [Press release]. <a href="https://presto.com/?p=2724">presto.com</a></li>
+      <li>Naomi, O. (2025, June 22). How restaurants are building invisible support teams with AI chatbots and smart cameras. <i>Restaurant Technology News</i>. <a href="https://restauranttechnologynews.com/2025/06/how-restaurants-are-building-invisible-support-teams-with-ai-chatbots-and-smart-cameras/">restauranttechnologynews.com</a></li>
+      <li>Vina, A. (n.d.). Streamlining operations using Vision AI in restaurants. <i>Ultralytics</i>. <a href="https://www.ultralytics.com/blog/streamlining-operations-using-vision-ai-in-restaurants">ultralytics.com</a></li>
+      <li>The Takeout. (n.d.). Deeply unsettling startup installs cameras to scrutinize drive-thru workers. <a href="https://thetakeout.com/startup-wrong-food-drive-thru-order-1847695904">thetakeout.com</a></li>
+    </ul>
+  </section>
+
+  <footer>
+    <p><b>Pavan Kumar Seethamsetty</b> · Indiana Wesleyan University · AIML-500 Machine Learning Fundamentals</p>
+  </footer>
+</main>
+
+<script>
+// Restaurant floor simulation + tiny table-state model.
+// Illustration of how a camera-based system like Presto Vision works. Not Presto's real model.
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const TABLE_POS = [
+  { id: 1, x: 340, y: 175 }, { id: 2, x: 505, y: 175 }, { id: 3, x: 670, y: 175 }, { id: 4, x: 835, y: 175 },
+  { id: 5, x: 340, y: 395 }, { id: 6, x: 505, y: 395 }, { id: 7, x: 670, y: 395 }, { id: 8, x: 835, y: 395 }
+];
+const STATION = { x: 262, y: 285 };
+const STATES = ["free", "seated", "eating", "clear"];
+const STATE_LABEL = { free: "Free", seated: "Just seated", eating: "Eating", clear: "Needs clearing" };
+
+// ---- The model: objects (layer 1) -> table-state scores (layer 2) -> softmax ----
+const MODEL = { bagEat: 0.2, bagClear: 0 };
+const START_BAG = { bagEat: 0.2, bagClear: 0 };
+const LR = 1.2;
+
+function features(tb) {
+  const s = tb.state;
+  const people = s === "seated" || s === "eating" ? tb.party.size : 0;
+  const plates = s === "eating" || s === "left" || s === "out" || s === "cleaning" ? (tb.party ? tb.party.size : 2) : 0;
+  const mess = s === "left" || s === "cleaning" ? 1 : 0;
+  const bag = tb.bag ? 1 : 0;
+  return { people, plates, mess, bag };
+}
+
+function predict(f, w = MODEL) {
+  const p = f.people > 0 ? 1 : 0, pl = f.plates > 0 ? 1 : 0, m = f.mess, b = f.bag;
+  const scores = {
+    free: 2.5 * (1 - p) + 1.5 * (1 - m) - 2 * pl,
+    seated: 2.5 * p - 1.5 * pl,
+    eating: 2 * p + 2 * pl + w.bagEat * b,
+    clear: 2.5 * (1 - p) + 2 * m + 1.5 * pl + w.bagClear * b
+  };
+  const mx = Math.max(...Object.values(scores));
+  let sum = 0; const probs = {};
+  STATES.forEach((k) => { probs[k] = Math.exp(scores[k] - mx); sum += probs[k]; });
+  STATES.forEach((k) => (probs[k] /= sum));
+  const top = STATES.reduce((a, k) => (probs[k] > probs[a] ? k : a), "free");
+  return { probs, top };
+}
+
+// One step of gradient descent on softmax cross-entropy, for the bag weights only.
+function backpropCorrection(f, target) {
+  const { probs } = predict(f);
+  const before = { ...MODEL };
+  // d(loss)/d(score_k) = p_k - y_k ; score_eating has +bagEat*b, score_clear has +bagClear*b
+  MODEL.bagEat -= LR * (probs.eating - (target === "eating" ? 1 : 0)) * f.bag;
+  MODEL.bagClear -= LR * (probs.clear - (target === "clear" ? 1 : 0)) * f.bag;
+  MODEL.bagEat = +MODEL.bagEat.toFixed(2);
+  MODEL.bagClear = +MODEL.bagClear.toFixed(2);
+  return { before, after: { ...MODEL }, lossBefore: -Math.log(probs[target]) };
+}
+
+function resetModel() { Object.assign(MODEL, START_BAG); }
+
+// ---- Simulation ----
+class Sim {
+  constructor(seed, ai) {
+    this.ai = ai;
+    this.arr = mulberry32(seed);
+    this.t = 0; // minutes after 7:00 PM
+    this.busy = true;
+    this.queue = [];
+    this.wrongTrips = 0;
+    this.metrics = { waits: [], uncleared: 0, turned: 0 };
+    this.tables = TABLE_POS.map((p) => ({ ...p, state: "free", st: 0, party: null, mess: [], bag: false, leftAt: 0, noticeAt: 0, assigned: false, ignoreUntil: -1, turns: 0 }));
+    this.steward = { x: STATION.x, y: STATION.y, target: null, phase: "idle", work: 0 };
+    const pre = [
+      ["eating", 3, 40, 14], ["seated", 2, 35, 3], ["free"], ["left", 4, 30, 0],
+      ["eating", 2, 30, 20], ["eating", 4, 45, 8], ["left", 3, 30, 0], ["seated", 4, 38, 1]
+    ];
+    pre.forEach((p, i) => {
+      const tb = this.tables[i];
+      tb.state = p[0];
+      if (p[0] !== "free") { tb.party = this.makeParty(p[1], p[2], -10); tb.st = p[3]; }
+      if (p[0] === "left") { tb.leftAt = -2 - i; tb.mess = this.messFor(tb); tb.noticeAt = 4 + i; }
+    });
+    this.queue.push(this.makeParty(2, 35, -6), this.makeParty(3, 40, -2));
+    this.nextArrival = 1.5;
+  }
+  makeParty(size, meal, arrive) { return { size, meal, arrive, hue: Math.floor(size * 47 + meal * 13) % 360 }; }
+  messFor(tb) {
+    const r = mulberry32(tb.id * 97 + tb.turns * 13);
+    return Array.from({ length: 5 }, () => ({ dx: (r() - 0.5) * 70, dy: (r() - 0.5) * 48, r: 2 + r() * 3 }));
+  }
+  scheduleNext() {
+    const rate = this.busy ? 1 / 5.2 : 1 / 9;
+    this.nextArrival += -Math.log(1 - this.arr()) / rate;
+  }
+  needsVisit(tb) {
+    if (tb.assigned || tb.state === "cleaning") return false;
+    if (this.ai) return this.t >= tb.ignoreUntil && predict(features(tb)).top === "clear" && tb.state !== "free";
+    return tb.state === "left" && this.t >= tb.noticeAt;
+  }
+  alerts() { return this.ai ? this.tables.filter((tb) => tb.state !== "cleaning" && predict(features(tb)).top === "clear") : []; }
+  stageMistake(id) {
+    const tb = this.tables.find((x) => x.id === id && x.state === "eating") || this.tables.find((x) => x.state === "eating");
+    if (!tb) return null;
+    tb.eatSt = tb.st; tb.state = "out"; tb.st = 0; tb.bag = true; tb.outFor = 34; tb.ignoreUntil = -1;
+    return tb.id;
+  }
+  step(dt) {
+    this.t += dt;
+    while (this.t >= this.nextArrival) {
+      const size = 2 + Math.floor(this.arr() * 3);
+      const meal = 28 + Math.floor(this.arr() * 20);
+      this.queue.push(this.makeParty(size, meal, this.nextArrival));
+      this.scheduleNext();
+    }
+    this.tables.forEach((tb) => {
+      tb.st += dt;
+      if (tb.state === "seated" && tb.st >= 6) { tb.state = "eating"; tb.st = 0; }
+      else if (tb.state === "eating" && tb.st >= tb.party.meal) {
+        tb.state = "left"; tb.st = 0; tb.leftAt = this.t; tb.mess = this.messFor(tb); tb.bag = false;
+        tb.noticeAt = this.t + 5 + ((tb.id * 7 + tb.turns * 3) % 10);
+      } else if (tb.state === "out" && tb.st >= tb.outFor) { tb.state = "eating"; tb.st = tb.eatSt || 0; }
+    });
+    this.tables.forEach((tb) => {
+      if (tb.state === "free" && this.queue.length) {
+        const party = this.queue.shift();
+        this.metrics.waits.push(this.t - party.arrive);
+        tb.state = "seated"; tb.st = 0; tb.party = party;
+      }
+    });
+    const s = this.steward;
+    if (s.phase === "idle") {
+      const cands = this.tables.filter((tb) => this.needsVisit(tb)).sort((a, b) => b.st - a.st);
+      if (cands.length) { s.target = cands[0]; s.target.assigned = true; s.phase = "going"; }
+      else { // drift home
+        const dx = STATION.x - s.x, dy = STATION.y - s.y, d = Math.hypot(dx, dy);
+        if (d > 2) { const m = Math.min(d, 70 * dt); s.x += (dx / d) * m; s.y += (dy / d) * m; }
+      }
+    }
+    if (s.phase === "going") {
+      const tx = s.target.x - 62, ty = s.target.y;
+      const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy), m = 90 * dt;
+      if (d <= m) {
+        s.x = tx; s.y = ty;
+        const tb = s.target;
+        if (tb.state === "left") { this.metrics.uncleared += this.t - tb.leftAt; tb.state = "cleaning"; tb.st = 0; s.phase = "cleaning"; s.work = 3; }
+        else { if (tb.state === "out") this.wrongTrips++; s.phase = "checking"; s.work = 1; tb.ignoreUntil = this.t + 4; }
+      } else { s.x += (dx / d) * m; s.y += (dy / d) * m; }
+    } else if (s.phase === "cleaning" || s.phase === "checking") {
+      s.work -= dt;
+      if (s.work <= 0) {
+        const tb = s.target;
+        if (s.phase === "cleaning") { tb.state = "free"; tb.st = 0; tb.party = null; tb.mess = []; tb.turns++; this.metrics.turned++; }
+        tb.assigned = false; s.target = null; s.phase = "idle";
+      }
+    }
+  }
+  report() {
+    const live = this.tables.filter((tb) => tb.state === "left").reduce((a, tb) => a + (this.t - tb.leftAt), 0);
+    const waiting = this.queue.reduce((a, p) => a + (this.t - p.arrive), 0);
+    const all = this.metrics.waits.concat(this.queue.map((p) => this.t - p.arrive));
+    return {
+      avgWait: all.length ? all.reduce((a, b) => a + b, 0) / all.length : 0,
+      uncleared: this.metrics.uncleared + live,
+      turned: this.metrics.turned,
+      waitingNow: this.queue.length,
+      wrongTrips: this.wrongTrips,
+      waitingMin: waiting
+    };
+  }
+}
+
+if (typeof module !== "undefined") module.exports = { Sim, predict, features, backpropCorrection, resetModel, MODEL };
+
+</script>
+<script>
+(function () {
+  const cv = document.getElementById("floor");
+  const ctx = cv.getContext("2d");
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = 960 * dpr; cv.height = 540 * dpr; ctx.scale(dpr, dpr);
+  const $ = (id) => document.getElementById(id);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const SPEED = 1.5; // simulated minutes per real second
+
+  let simOn = new Sim(42, true), simOff = new Sim(42, false);
+  let aiView = true;
+  const ov = { pixels: false, objects: false, states: false, alerts: false };
+  let focusId = 1, focusLocked = false;
+  let mistakeId = null;
+  let backAnim = 0;
+  const sim = () => (aiView ? simOn : simOff);
+
+  const C = {
+    floor: "#1a2228", floor2: "#1e272e", wall: "#2c3842", table: "#7b5a3c", tableTop: "#8d6a49", chair: "#3a4650",
+    lobby: "#161d22", text: "#dfe7ee", dim: "#8796a3", staff: "#ffb547", plate: "#f2f4f5", mess: "#a5733f",
+    box: "#4cd28a", boxPlate: "#5aa9ff", boxMess: "#ff9f5a", bag: "#c58bff", alert: "#ffb547", back: "#ff5d5d"
+  };
+  const STATE_COLOR = { free: "#4cd28a", seated: "#5aa9ff", eating: "#8ab4ff", clear: "#ffb547" };
+
+  // ---------- drawing ----------
+  function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+  function seatPos(tb, i) {
+    const s = [[0, -50], [0, 50], [-62, 0], [62, 0]][i];
+    return { x: tb.x + s[0], y: tb.y + s[1] };
+  }
+  function guestColor(p, i) { return `hsl(${(p.hue + i * 38) % 360} 55% 62%)`; }
+  function conf(id, k) { return (0.86 + ((id * 13 + k * 7) % 12) / 100).toFixed(2); }
+
+  function drawFloor(S) {
+    ctx.fillStyle = C.floor; ctx.fillRect(0, 0, 960, 540);
+    for (let x = 220; x < 960; x += 48) for (let y = 40; y < 540; y += 48) { if (((x + y) / 48) % 2 === 0) { ctx.fillStyle = C.floor2; ctx.fillRect(x, y, 48, 48); } }
+    ctx.fillStyle = C.wall; ctx.fillRect(0, 0, 960, 40);
+    ctx.fillStyle = C.dim; ctx.font = "500 12px 'IBM Plex Mono', monospace";
+    ctx.fillText("KITCHEN", 880, 25);
+    // lobby
+    ctx.fillStyle = C.lobby; ctx.fillRect(0, 40, 210, 500);
+    ctx.fillStyle = C.wall; ctx.fillRect(210, 40, 6, 200); ctx.fillRect(210, 330, 6, 210);
+    ctx.fillStyle = "#3b4b57"; ctx.fillRect(60, 530, 90, 10);
+    ctx.fillStyle = C.dim; ctx.fillText("ENTRANCE", 72, 522);
+    ctx.fillStyle = C.text; ctx.font = "600 14px 'Source Sans 3', sans-serif";
+    ctx.fillText("Lobby", 16, 66);
+    const R = S.report();
+    ctx.fillStyle = R.waitingNow > 6 ? "#ff9f9f" : C.dim; ctx.font = "500 12px 'IBM Plex Mono', monospace";
+    ctx.fillText(`${R.waitingNow} parties waiting`, 16, 86);
+    const longest = S.queue.length ? Math.round(S.t - S.queue[0].arrive) : 0;
+    ctx.fillText(`longest wait ${longest} min`, 16, 104);
+    // host stand
+    rr(150, 270, 46, 30, 4); ctx.fillStyle = "#4a3a2c"; ctx.fill();
+    ctx.fillStyle = C.dim; ctx.fillText("HOST", 156, 290);
+    // queue
+    S.queue.slice(0, 14).forEach((p, i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const bx = 40 + col * 62, by = 140 + row * 52;
+      for (let g = 0; g < p.size; g++) {
+        ctx.beginPath(); ctx.arc(bx + (g % 2) * 18, by + Math.floor(g / 2) * 16, 7, 0, Math.PI * 2);
+        ctx.fillStyle = guestColor(p, g); ctx.fill();
+      }
+    });
+    if (S.queue.length > 14) { ctx.fillStyle = C.dim; ctx.fillText(`+${S.queue.length - 14} more`, 40, 515); }
+    // station
+    rr(STATION.x - 26, STATION.y - 16, 52, 32, 4); ctx.fillStyle = "#26323b"; ctx.fill();
+    ctx.fillStyle = C.dim; ctx.font = "500 10px 'IBM Plex Mono', monospace"; ctx.fillText("STATION", STATION.x - 22, STATION.y + 30);
+  }
+
+  function drawTable(tb) {
+    // chairs
+    for (let i = 0; i < 4; i++) { const p = seatPos(tb, i); rr(p.x - 13, p.y - 13, 26, 26, 6); ctx.fillStyle = C.chair; ctx.fill(); }
+    rr(tb.x - 46, tb.y - 34, 92, 68, 8); ctx.fillStyle = C.table; ctx.fill();
+    rr(tb.x - 42, tb.y - 30, 84, 60, 6); ctx.fillStyle = C.tableTop; ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.font = "800 13px Archivo, sans-serif"; ctx.fillText(String(tb.id), tb.x - 4, tb.y + 5);
+    const s = tb.state, p = tb.party;
+    const nPlates = s === "eating" || s === "left" || s === "out" || s === "cleaning" ? (p ? p.size : 2) : 0;
+    for (let i = 0; i < nPlates; i++) {
+      const sp = seatPos(tb, i), px = tb.x + (sp.x - tb.x) * 0.45, py = tb.y + (sp.y - tb.y) * 0.45;
+      ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fillStyle = C.plate; ctx.fill();
+      if (s === "left" || s === "cleaning" || s === "out") { ctx.beginPath(); ctx.arc(px + 2, py - 1, 3.5, 0, Math.PI * 2); ctx.fillStyle = C.mess; ctx.fill(); }
+      else { ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fillStyle = "#d9a066"; ctx.fill(); }
+    }
+    if (s === "left" || s === "cleaning") tb.mess.forEach((m) => { ctx.beginPath(); ctx.arc(tb.x + m.dx * (s === "cleaning" ? 0.5 : 1), tb.y + m.dy, m.r, 0, Math.PI * 2); ctx.fillStyle = C.mess; ctx.fill(); });
+    if (s === "seated" || s === "eating") for (let i = 0; i < p.size; i++) {
+      const sp = seatPos(tb, i);
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, 12, 0, Math.PI * 2); ctx.fillStyle = guestColor(p, i); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.stroke();
+    }
+    if (s === "seated") { ctx.fillStyle = "#f2f4f5"; rr(tb.x - 22, tb.y - 8, 16, 20, 2); ctx.fill(); rr(tb.x + 6, tb.y - 8, 16, 20, 2); ctx.fill(); }
+    if (tb.bag) { const sp = seatPos(tb, 0); rr(sp.x - 9, sp.y - 7, 18, 14, 3); ctx.fillStyle = C.bag; ctx.fill(); ctx.fillStyle = "#2a1a3a"; ctx.fillRect(sp.x - 4, sp.y - 10, 8, 3); }
+  }
+
+  function drawSteward(S) {
+    const s = S.steward;
+    if (ov.alerts && S.ai && s.target && s.phase === "going") {
+      ctx.setLineDash([6, 6]); ctx.strokeStyle = C.alert; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.target.x - 62, s.target.y); ctx.stroke(); ctx.setLineDash([]);
+    }
+    rr(s.x - 13, s.y - 13, 26, 26, 8); ctx.fillStyle = C.staff; ctx.fill();
+    ctx.fillStyle = "#1a1206"; ctx.font = "800 13px Archivo, sans-serif"; ctx.fillText("S", s.x - 4, s.y + 5);
+    if (s.phase === "cleaning" || s.phase === "checking") {
+      ctx.fillStyle = C.text; ctx.font = "600 12px 'Source Sans 3', sans-serif";
+      ctx.fillText(s.phase === "cleaning" ? "clearing…" : "guests coming back?", s.x - 20, s.y - 20);
+    }
+  }
+
+  function box(x, y, w, h, col, label) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+    ctx.font = "500 11px 'IBM Plex Mono', monospace";
+    const tw = ctx.measureText(label).width + 8;
+    ctx.fillStyle = col; ctx.fillRect(x, y - 15, tw, 15);
+    ctx.fillStyle = "#0b1014"; ctx.fillText(label, x + 4, y - 4);
+  }
+
+  function drawOverlays(S) {
+    if (ov.pixels) {
+      ctx.strokeStyle = "rgba(120,200,255,.13)"; ctx.lineWidth = 1;
+      for (let x = 0; x <= 960; x += 16) { ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, 540); ctx.stroke(); }
+      for (let y = 40; y <= 540; y += 16) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(960, y); ctx.stroke(); }
+      const tb = S.tables.find((t) => t.id === focusId);
+      ctx.fillStyle = "rgba(8,11,14,.85)"; rr(tb.x + 50, tb.y - 72, 150, 44, 6); ctx.fill();
+      ctx.fillStyle = "#9fd6ff"; ctx.font = "500 11px 'IBM Plex Mono', monospace";
+      ctx.fillText("pixel (412, 188)", tb.x + 58, tb.y - 56);
+      ctx.fillText("R 141  G 106  B 73", tb.x + 58, tb.y - 40);
+    }
+    if (ov.objects) S.tables.forEach((tb) => {
+      const f = features(tb);
+      if (f.people) box(tb.x - 76, tb.y - 64, 152, 128, C.box, `person ×${f.people} ${conf(tb.id, 1)}`);
+      if (f.plates) box(tb.x - 40, tb.y - 28, 80, 56, C.boxPlate, `plate ×${f.plates}`);
+      if (f.mess) box(tb.x - 36, tb.y + 4, 40, 22, C.boxMess, "mess");
+      if (f.bag) { const sp = seatPos(tb, 0); box(sp.x - 14, sp.y - 12, 28, 24, C.bag, `bag ${conf(tb.id, 2)}`); }
+    });
+    if (ov.objects) { const s = S.steward; box(s.x - 17, s.y - 17, 34, 34, C.staff, "staff"); }
+    if (ov.states) S.tables.forEach((tb) => {
+      const pr = predict(features(tb));
+      let label = `${STATE_LABEL[pr.top]} ${Math.round(pr.probs[pr.top] * 100)}%`;
+      let col = STATE_COLOR[pr.top];
+      if (tb.state === "cleaning") { label = "Being cleared"; col = "#c9d3dc"; }
+      ctx.font = "600 12px 'Source Sans 3', sans-serif";
+      const w = ctx.measureText(label).width + 14;
+      rr(tb.x - w / 2, tb.y + 66, w, 20, 10); ctx.fillStyle = col; ctx.fill();
+      ctx.fillStyle = "#0b1014"; ctx.fillText(label, tb.x - w / 2 + 7, tb.y + 80);
+    });
+    if (ov.alerts && S.ai) {
+      const al = S.alerts().slice(0, 4);
+      al.forEach((tb, i) => {
+        const y = 52 + i * 30;
+        rr(730, y, 220, 24, 6); ctx.fillStyle = "rgba(255,181,71,.95)"; ctx.fill();
+        ctx.fillStyle = "#1a1206"; ctx.font = "600 13px 'Source Sans 3', sans-serif";
+        ctx.fillText(`⚠ Table ${tb.id} needs clearing`, 740, y + 17);
+        ctx.strokeStyle = C.alert; ctx.lineWidth = 3; rr(tb.x - 50, tb.y - 38, 100, 76, 10); ctx.stroke();
+      });
+    }
+    if (ov.alerts && !S.ai) {
+      rr(730, 52, 220, 24, 6); ctx.fillStyle = "rgba(60,72,84,.95)"; ctx.fill();
+      ctx.fillStyle = "#dfe7ee"; ctx.font = "600 13px 'Source Sans 3', sans-serif"; ctx.fillText("Alerts off: steward on rounds", 740, 69);
+    }
+  }
+
+  function drawHUD(S) {
+    const mins = Math.floor(S.t), hh = 7 + Math.floor((mins + 0) / 60), mm = ((mins % 60) + 60) % 60;
+    ctx.fillStyle = "#ff4d4d"; ctx.beginPath(); ctx.arc(234, 20, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.text; ctx.font = "500 12px 'IBM Plex Mono', monospace";
+    ctx.fillText(`CAM 1 · DINING ROOM · ${hh > 12 ? hh - 12 : hh}:${String(mm).padStart(2, "0")} PM · ${S.ai ? "AI ALERTS ON" : "AI ALERTS OFF"}`, 246, 24);
+    // focus ring
+    const tb = S.tables.find((t) => t.id === focusId);
+    ctx.strokeStyle = backAnim > 0 ? C.back : "rgba(255,255,255,.55)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+    rr(tb.x - 82, tb.y - 70, 164, 162, 12); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  function draw() {
+    const S = sim();
+    drawFloor(S);
+    S.tables.forEach(drawTable);
+    drawSteward(S);
+    drawOverlays(S);
+    drawHUD(S);
+  }
+
+  // ---------- network panel ----------
+  const tcv = $("thumb"), tctx = tcv.getContext("2d");
+  const small = document.createElement("canvas"); small.width = 20; small.height = 15;
+  const sctx = small.getContext("2d");
+  let lastTop = null;
+  function pulse(ids, cls, gap) {
+    ids.forEach((id, i) => setTimeout(() => { $(id).classList.add(cls); setTimeout(() => $(id).classList.remove(cls), reduce ? 600 : 700); }, reduce ? 0 : i * gap));
+  }
+  function renderPanel() {
+    const S = sim();
+    const tb = S.tables.find((t) => t.id === focusId);
+    $("focusName").textContent = "Table " + tb.id;
+    // pixelated crop (ignore overlays by cropping the plain region; overlays may show, that's fine)
+    sctx.imageSmoothingEnabled = true;
+    sctx.drawImage(cv, (tb.x - 80) * dpr, (tb.y - 60) * dpr, 160 * dpr, 120 * dpr, 0, 0, 20, 15);
+    tctx.imageSmoothingEnabled = false;
+    tctx.drawImage(small, 0, 0, 20, 15, 0, 0, 160, 120);
+    const f = features(tb);
+    const rows = [["People", f.people ? `${f.people} · ${conf(tb.id, 1)}` : "none", f.people], ["Plates", f.plates ? `${f.plates}` : "none", f.plates], ["Mess / crumbs", f.mess ? "yes" : "no", f.mess], ["Bag on chair", f.bag ? `yes · ${conf(tb.id, 2)}` : "no", f.bag]];
+    $("objs").innerHTML = rows.map((r) => `<li class="${r[2] ? "on" : ""}"><span>${r[0]}</span><span>${r[1]}</span></li>`).join("");
+    const pr = predict(f);
+    $("probs").innerHTML = STATES.map((k) => `<div class="prob ${k === pr.top ? "top" : ""}"><div class="lbl"><span>${STATE_LABEL[k]}</span><span>${Math.round(pr.probs[k] * 100)}%</span></div><div class="track"><i style="width:${(pr.probs[k] * 100).toFixed(1)}%"></i></div></div>`).join("");
+    $("weights").innerHTML = `<span>weight: bag → eating = ${MODEL.bagEat.toFixed(2)}</span><span>weight: bag → needs clearing = ${MODEL.bagClear.toFixed(2)}</span>`;
+    $("weights").classList.toggle("hot", backAnim > 0);
+    let act = "No action", note = "", alert = false;
+    if (tb.state === "cleaning") { act = "Steward is clearing"; note = "The table will be free in a few minutes."; }
+    else if (pr.top === "clear") { act = `Alert steward: clear Table ${tb.id}`; alert = true; note = tb.state === "out" ? "Wrong! These guests only stepped out." : "Host can seat the next party right after."; }
+    else if (pr.top === "free") { act = `Tell host: Table ${tb.id} is free`; note = "Seat the next party from the lobby."; }
+    else if (pr.top === "seated") { act = "No action"; note = "Guests are ordering."; }
+    else { act = "No action"; note = tb.state === "out" ? "Correct: the guests are coming back." : "Guests are eating."; }
+    if (!S.ai && tb.state !== "cleaning") note = "Alerts are off, so the steward only finds out on their next round. " + note;
+    $("action").textContent = act; $("action").className = "action" + (alert ? " alert" : "");
+    $("actionNote").textContent = note;
+    const key = tb.id + pr.top;
+    if (key !== lastTop) { lastTop = key; if (backAnim <= 0) pulse(["c0", "c1", "c2", "c3"], "fwd", 160); }
+    $("wrongBtn").disabled = !(tb.state === "out" && pr.top !== "eating");
+  }
+
+  function renderResults() {
+    const a = simOn.report(), b = simOff.report();
+    const m = [
+      ["Average lobby wait", `${a.avgWait.toFixed(0)} min`, `${b.avgWait.toFixed(0)} min`, "for every party so far"],
+      ["Minutes tables sat uncleared", `${a.uncleared.toFixed(0)}`, `${b.uncleared.toFixed(0)}`, "added up across all tables"],
+      ["Tables turned", `${a.turned}`, `${b.turned}`, "cleared and ready again"],
+      ["Wasted steward trips", `${a.wrongTrips}`, `${b.wrongTrips}`, "sent to a table that did not need clearing"]
+    ];
+    $("results").innerHTML = m.map((r) => `<div class="metric"><span class="muted">${r[0]}</span><div class="vals"><span class="on">${r[1]}</span><span class="off">${r[2]}</span></div><small>${r[3]}</small></div>`).join("");
+  }
+
+  // ---------- learning ----------
+  function correct() {
+    const S = simOn;
+    const tb = S.tables.find((t) => t.id === focusId);
+    if (!tb || tb.state !== "out") return;
+    backpropCorrection(features(tb), "eating");
+    backAnim = 2.2;
+    pulse(["c3", "c2", "c1"], "back", 300);
+    if (S.steward.target === tb) { tb.assigned = false; S.steward.target = null; S.steward.phase = "idle"; }
+    tb.ignoreUntil = -1;
+  }
+
+  // ---------- chapters ----------
+  function setOv(p, o, s, a) { ov.pixels = p; ov.objects = o; ov.states = s; ov.alerts = a; syncTools(); }
+  function setAI(on) { aiView = on; syncTools(); }
+  function focusOn(pred) { const t = sim().tables.find(pred); if (t) focusId = t.id; }
+  const CH = [
+    { label: "Intro", dur: 9, cap: [[0, "This is a ceiling camera's view of a busy restaurant. <b>Outback Steakhouse</b> piloted a camera system like this, called <b>Presto Vision</b>, to help hosts and servers keep up."]],
+      setup() { setAI(false); setOv(false, false, false, false); focusOn((t) => t.state === "eating"); } },
+    { label: "Problem", dur: 11, cap: [[0, "Without help, the steward <b>S</b> only spots a messy table on their next walk around the room."], [5.5, "Meanwhile guests pile up in the lobby while tables that guests have left sit uncleared."]],
+      setup() { setAI(false); setOv(false, false, false, false); focusOn((t) => t.state === "left"); } },
+    { label: "Pixels", dur: 10, cap: [[0, "<b>Input layer.</b> The network doesn't see a restaurant. It sees a grid of numbers, a color value for every pixel, refreshed many times a second."], [5, "Look below the video: this is what Table " + "<span data-focus></span> looks like to the model."]],
+      setup() { setAI(true); setOv(true, false, false, false); focusOn((t) => t.state === "eating"); } },
+    { label: "Objects", dur: 11, cap: [[0, "<b>Hidden layers.</b> Early layers learn edges and shapes. Deeper layers combine those into objects: people, plates, crumbs, a bag."], [5.5, "Each box is a guess with a confidence score. The model learned these from thousands of labelled camera frames."]],
+      setup() { setAI(true); setOv(false, true, false, false); focusOn((t) => t.state === "eating"); } },
+    { label: "Table state", dur: 11, cap: [[0, "<b>Next layer.</b> Objects are combined into a table state. People plus plates means eating. No people plus dirty plates means needs clearing."], [5.5, "Each connection has a <b>weight</b>: how much one object counts toward one state."]],
+      setup() { setAI(true); setOv(false, false, true, false); focusOn((t) => t.state === "left" || t.state === "eating"); } },
+    { label: "Alerts", dur: 12, cap: [[0, "<b>Output.</b> The moment a table needs clearing, the steward gets an alert and heads straight there."], [6, "Faster clearing means the host seats the lobby sooner. That was the whole point of the pilot."]],
+      setup() { setAI(true); setOv(false, false, true, true); focusOn((t) => t.state === "left"); } },
+    { label: "Learning", dur: 20, cap: [[0, "Models make mistakes. This party <b>stepped out</b> but left a bag and their plates. The model calls it <b>needs clearing</b> and sends the steward."], [6.5, "A manager marks it wrong. The error flows <b>backward</b> through the layers (backpropagation) and the bag's weight changes."], [12.5, "One more correction and the model is confident: a bag on the chair means the guests are coming back. Normal dirty tables are still caught."]],
+      setup() { resetModel(); setAI(true); setOv(false, true, true, true); mistakeId = simOn.stageMistake(6); if (mistakeId) focusId = mistakeId; },
+      events: [[6.5, correct], [12.5, correct]] },
+    { label: "Results", dur: 12, cap: [[0, "Same guests, same night. Compare the two numbers in each box below the video: <b>green</b> with AI alerts, grey without."], [6, "Now it's your turn. Switch alerts off, stage a tricky table, click tables, and teach the model yourself."]],
+      setup() { setAI(true); setOv(false, false, true, true); } }
+  ];
+  let chap = 0, chapT = 0, playing = false, finished = false, firedEv = new Set();
+
+  const chWrap = $("chapters");
+  CH.forEach((c, i) => {
+    const b = document.createElement("button"); b.className = "chap"; b.id = "chap" + i;
+    b.innerHTML = `${i + 1}. ${c.label}<span class="fill"></span>`;
+    b.addEventListener("click", () => { goChapter(i); if (!playing) togglePlay(true); });
+    chWrap.appendChild(b);
+  });
+  function goChapter(i) {
+    chap = i; chapT = 0; finished = false; firedEv = new Set(); focusLocked = false;
+    CH[i].setup();
+    CH.forEach((c, j) => { const b = $("chap" + j); b.setAttribute("aria-current", String(j === i)); b.classList.toggle("done", j < i); b.querySelector(".fill").style.width = j < i ? "100%" : "0"; });
+    updateCaption();
+  }
+  function updateCaption() {
+    if (finished) { $("caption").innerHTML = "<b>Your turn.</b> Click any table, switch alerts off, or press <b>Stage a tricky table (resets learning)</b> and teach the model with <b>Mark prediction wrong</b>."; return; }
+    const caps = CH[chap].cap; let txt = caps[0][1];
+    caps.forEach((c) => { if (chapT >= c[0]) txt = c[1]; });
+    $("caption").innerHTML = txt.replace("<span data-focus></span>", String(focusId));
+  }
+  function togglePlay(force) {
+    playing = typeof force === "boolean" ? force : !playing;
+    $("playBtn").textContent = playing ? "❚❚ Pause" : (finished ? "↻ Replay" : "▶ Play");
+  }
+  $("playBtn").addEventListener("click", () => {
+    if (finished && !playing) { simOn = new Sim(42, true); simOff = new Sim(42, false); resetModel(); applyBusy(); goChapter(0); togglePlay(true); return; }
+    togglePlay();
+  });
+
+  // ---------- tools ----------
+  function syncTools() {
+    $("aiToggle").checked = aiView;
+    $("ovPixels").checked = ov.pixels; $("ovObjects").checked = ov.objects; $("ovStates").checked = ov.states; $("ovAlerts").checked = ov.alerts;
+  }
+  $("aiToggle").addEventListener("change", (e) => { aiView = e.target.checked; });
+  function applyBusy() { simOn.busy = simOff.busy = $("busyToggle").checked; }
+  $("busyToggle").addEventListener("change", applyBusy);
+  [["ovPixels", "pixels"], ["ovObjects", "objects"], ["ovStates", "states"], ["ovAlerts", "alerts"]].forEach(([id, k]) => $(id).addEventListener("change", (e) => (ov[k] = e.target.checked)));
+  $("stageBtn").addEventListener("click", () => {
+    const pick = simOn.tables.filter((t) => t.state === "eating").sort((a, b) => a.st - b.st)[0];
+    if (!pick) return;
+    resetModel();
+    simOn.stageMistake(pick.id); aiView = true; ov.objects = ov.states = ov.alerts = true; syncTools(); focusId = pick.id;
+  });
+  $("wrongBtn").addEventListener("click", correct);
+  $("resetW").addEventListener("click", () => { resetModel(); });
+  cv.addEventListener("click", (e) => {
+    const r = cv.getBoundingClientRect();
+    const x = (e.clientX - r.left) * (960 / r.width), y = (e.clientY - r.top) * (540 / r.height);
+    let best = null, bd = 1e9;
+    sim().tables.forEach((t) => { const d = Math.hypot(t.x - x, t.y - y); if (d < bd) { bd = d; best = t; } });
+    if (best && bd < 110) { focusId = best.id; focusLocked = true; }
+  });
+
+  // ---------- loop ----------
+  let last = performance.now(), panelAcc = 0, resAcc = 0;
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (playing) {
+      const step = dt * SPEED;
+      simOn.step(step); simOff.step(step);
+      if (!finished) {
+        chapT += dt;
+        (CH[chap].events || []).forEach((ev, i) => { if (chapT >= ev[0] && !firedEv.has(i)) { firedEv.add(i); ev[1](); } });
+        $("chap" + chap).querySelector(".fill").style.width = Math.min(100, (chapT / CH[chap].dur) * 100) + "%";
+        updateCaption();
+        if (chapT >= CH[chap].dur) {
+          if (chap < CH.length - 1) goChapter(chap + 1);
+          else { finished = true; $("chap" + chap).classList.add("done"); updateCaption(); }
+        }
+      }
+      if (!focusLocked && !finished && chap !== 6) {
+        const cur = sim().tables.find((t) => t.id === focusId);
+        if (chap === 5 && cur.state !== "left") focusOn((t) => t.state === "left");
+      }
+    }
+    if (backAnim > 0) backAnim -= dt;
+    draw();
+    panelAcc += dt; resAcc += dt;
+    if (panelAcc > 0.25) { panelAcc = 0; renderPanel(); }
+    if (resAcc > 0.5) { resAcc = 0; renderResults(); }
+    requestAnimationFrame(frame);
+  }
+
+  goChapter(0);
+  togglePlay(false);
+  draw(); renderPanel(); renderResults();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
