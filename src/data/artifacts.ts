@@ -136,7 +136,7 @@ export const artifacts: Artifact[] = [
   },
   {
     slug: "restaurant-camera-neural-network",
-    title: "How a Restaurant Camera Learns: Neural Networks in the Dining Room",
+    title: "Neural Networks Explained with a Real-World Case: AI Cameras at Outback Steakhouse",
     tag: "AIML-500-01N1Z - Neural Networks",
     summary:
       "An animated, interactive explainer that shows how a neural network turns a ceiling camera feed into \"Table 6 needs clearing,\" based on Outback Steakhouse's pilot of Presto Vision.",
